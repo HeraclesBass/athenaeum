@@ -1,4 +1,4 @@
-"""Handbook Library Platform API — Multi-library RAG platform."""
+"""Athenaeum API — Personal semantic library platform."""
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,8 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.api.routes import libraries, upload, search, chat, browse, settings
 
 app = FastAPI(
-    title="Handbook Library Platform",
-    description="Multi-library RAG platform with semantic search and AI chat",
+    title="Athenaeum",
+    description="Personal semantic library platform — upload documents, search semantically, chat with AI",
     version="1.0.0",
 )
 
@@ -38,7 +38,7 @@ app.include_router(settings.router, prefix="/api", tags=["settings"])
 
 @app.get("/health")
 def health():
-    return {"status": "healthy", "service": "handbook-library-platform"}
+    return {"status": "healthy", "service": "athenaeum"}
 
 
 if __name__ == "__main__":

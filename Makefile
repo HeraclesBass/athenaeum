@@ -7,7 +7,7 @@ ifneq (,$(wildcard .env))
 endif
 
 help:
-	@echo "Handbook Library Platform — available targets:"
+	@echo "Athenaeum — available targets:"
 	@echo ""
 	@echo "  run    docker compose up -d (all services)"
 	@echo "  stop   docker compose down"

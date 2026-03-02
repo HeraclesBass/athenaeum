@@ -81,8 +81,8 @@ export default function ChatInterface() {
           <div
             className="rounded-lg px-4 py-3 mb-4 text-sm flex items-center justify-between"
             style={{
-              background: "rgba(217,119,6,0.08)",
-              border: "1px solid rgba(217,119,6,0.22)",
+              background: "rgba(99,162,255,0.08)",
+              border: "1px solid rgba(99,162,255,0.22)",
               color: "var(--accent)",
             }}
           >
@@ -101,9 +101,9 @@ export default function ChatInterface() {
                 className="w-12 h-12 rounded-full mx-auto mb-4 flex items-center justify-center text-sm font-bold"
                 style={{
                   background: "var(--accent-dim)",
-                  border: "1px solid rgba(217,119,6,0.35)",
+                  border: "1px solid rgba(99,162,255,0.35)",
                   color: "var(--accent)",
-                  boxShadow: "0 0 16px rgba(217,119,6,0.3), 0 0 40px rgba(217,119,6,0.1)",
+                  boxShadow: "0 0 16px rgba(99,162,255,0.3), 0 0 40px rgba(99,162,255,0.1)",
                 }}
               >
                 AI
@@ -127,7 +127,7 @@ export default function ChatInterface() {
                     }}
                     onMouseEnter={(e) => {
                       const el = e.currentTarget as HTMLElement;
-                      el.style.borderColor = "rgba(217,119,6,0.35)";
+                      el.style.borderColor = "rgba(99,162,255,0.35)";
                       el.style.color = "var(--text)";
                     }}
                     onMouseLeave={(e) => {
@@ -153,9 +153,9 @@ export default function ChatInterface() {
                   className="w-7 h-7 rounded-full shrink-0 mr-2.5 mt-1 flex items-center justify-center text-xs font-bold"
                   style={{
                     background: "var(--accent-dim)",
-                    border: "1px solid rgba(217,119,6,0.35)",
+                    border: "1px solid rgba(99,162,255,0.35)",
                     color: "var(--accent)",
-                    boxShadow: "0 0 8px rgba(217,119,6,0.3)",
+                    boxShadow: "0 0 8px rgba(99,162,255,0.3)",
                   }}
                 >
                   AI
@@ -165,7 +165,7 @@ export default function ChatInterface() {
                 className="max-w-2xl rounded-2xl px-4 py-3 text-sm leading-relaxed"
                 style={{
                   background: m.role === "user" ? "var(--accent)" : "var(--surface)",
-                  color: m.role === "user" ? "#1a1210" : "var(--text)",
+                  color: m.role === "user" ? "#0a0e14" : "var(--text)",
                   border: m.role === "assistant" ? "1px solid var(--border)" : "none",
                   borderBottomRightRadius: m.role === "user" ? "4px" : undefined,
                   borderBottomLeftRadius: m.role === "assistant" ? "4px" : undefined,
@@ -182,9 +182,9 @@ export default function ChatInterface() {
                         key={j}
                         className="text-xs px-2 py-0.5 rounded"
                         style={{
-                          background: "rgba(217,119,6,0.1)",
+                          background: "rgba(99,162,255,0.1)",
                           color: "var(--accent)",
-                          border: "1px solid rgba(217,119,6,0.15)",
+                          border: "1px solid rgba(99,162,255,0.15)",
                         }}
                       >
                         {s.title}
@@ -202,9 +202,9 @@ export default function ChatInterface() {
                 className="w-7 h-7 rounded-full shrink-0 mr-2.5 mt-1 flex items-center justify-center text-xs font-bold"
                 style={{
                   background: "var(--accent-dim)",
-                  border: "1px solid rgba(217,119,6,0.35)",
+                  border: "1px solid rgba(99,162,255,0.35)",
                   color: "var(--accent)",
-                  boxShadow: "0 0 8px rgba(217,119,6,0.3)",
+                  boxShadow: "0 0 8px rgba(99,162,255,0.3)",
                 }}
               >
                 AI

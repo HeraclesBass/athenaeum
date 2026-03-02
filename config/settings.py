@@ -2,7 +2,7 @@ import os
 
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",
-    f"postgresql://handbook_library:{os.environ.get('HANDBOOK_LIBRARY_DB_PASSWORD', '')}@127.0.0.1:5442/handbook_library"
+    f"postgresql://athenaeum:{os.environ.get('ATHENAEUM_DB_PASSWORD', '')}@127.0.0.1:5442/athenaeum"
 )
 
 # Pluggable LLM provider for chat

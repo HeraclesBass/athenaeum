@@ -58,10 +58,10 @@ export default function LibraryCatalog() {
           className="text-4xl font-bold mb-3 tracking-tight"
           style={{ letterSpacing: "-0.02em" }}
         >
-          Handbook Library
+          Athenaeum
         </h1>
         <p className="text-base mb-1" style={{ color: "var(--muted)" }}>
-          Upload documents, search semantically, chat with AI
+          Your personal semantic library
         </p>
         <p className="text-sm" style={{ color: "var(--muted-2)" }}>
           {libraries.length} {libraries.length === 1 ? "library" : "libraries"}

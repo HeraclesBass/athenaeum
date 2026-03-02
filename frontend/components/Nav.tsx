@@ -31,7 +31,7 @@ export default function Nav() {
         className="font-semibold text-base tracking-tight mr-6 shrink-0"
         style={{ color: "var(--accent)" }}
       >
-        Library
+        Athenaeum
       </Link>
 
       {/* Breadcrumb / nav */}

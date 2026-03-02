@@ -1,31 +1,31 @@
 services:
   db:
     image: pgvector/pgvector:pg16
-    container_name: handbook_library_db
+    container_name: athenaeum_db
     restart: unless-stopped
     ports:
       - "127.0.0.1:5442:5432"
     environment:
-      POSTGRES_DB: handbook_library
-      POSTGRES_USER: handbook_library
-      POSTGRES_PASSWORD: ${HANDBOOK_LIBRARY_DB_PASSWORD:?Set HANDBOOK_LIBRARY_DB_PASSWORD in .env or hercules.env}
+      POSTGRES_DB: athenaeum
+      POSTGRES_USER: athenaeum
+      POSTGRES_PASSWORD: ${ATHENAEUM_DB_PASSWORD:?Set ATHENAEUM_DB_PASSWORD in .env or hercules.env}
     volumes:
-      - handbook_library_pgdata:/var/lib/postgresql/data
+      - athenaeum_pgdata:/var/lib/postgresql/data
       - ./config/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U handbook_library"]
+      test: ["CMD-SHELL", "pg_isready -U athenaeum"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   api:
     build: .
-    container_name: handbook_library_api
+    container_name: athenaeum_api
     restart: unless-stopped
     ports:
       - "127.0.0.1:8140:8000"
     environment:
-      DATABASE_URL: postgresql://handbook_library:${HANDBOOK_LIBRARY_DB_PASSWORD}@db:5432/handbook_library
+      DATABASE_URL: postgresql://athenaeum:${ATHENAEUM_DB_PASSWORD}@db:5432/athenaeum
       PYTHONPATH: /app
       LLM_PROVIDER: openai
       LLM_MODEL: auto
@@ -44,7 +44,7 @@ services:
 
   frontend:
     build: ./frontend
-    container_name: handbook_library_frontend
+    container_name: athenaeum_frontend
     restart: unless-stopped
     ports:
       - "127.0.0.1:3140:3000"
@@ -64,4 +64,4 @@ networks:
     name: hercules-platform_default
 
 volumes:
-  handbook_library_pgdata:
+  athenaeum_pgdata:

@@ -3,8 +3,8 @@ import "./globals.css";
 import Nav from "@/components/Nav";
 
 export const metadata: Metadata = {
-  title: "Handbook Library",
-  description: "Multi-library RAG platform — upload documents, search semantically, chat with AI",
+  title: "Athenaeum",
+  description: "Your personal semantic library — upload documents, search semantically, chat with AI",
 };
 
 export default function RootLayout({

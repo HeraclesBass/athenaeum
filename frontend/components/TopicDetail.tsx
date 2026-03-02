@@ -51,9 +51,9 @@ export default function TopicDetail({ topicId, onClose }: Props) {
               key={kw}
               className="text-sm px-3 py-1 rounded-full"
               style={{
-                background: "rgba(217,119,6,0.1)",
+                background: "rgba(99,162,255,0.1)",
                 color: "var(--accent)",
-                border: "1px solid rgba(217,119,6,0.25)",
+                border: "1px solid rgba(99,162,255,0.25)",
               }}
             >
               {kw}
