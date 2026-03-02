@@ -1,8 +1,10 @@
 """Settings API - surface current LLM config and test connections."""
 
 import os
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
+
+from src.api.auth import require_auth
 
 router = APIRouter()
 
@@ -57,7 +59,8 @@ def get_settings():
 
 
 @router.post("/settings/test")
-def test_connection(req: TestRequest):
+def test_connection(req: TestRequest, request: Request):
+    require_auth(request)
     """Test an LLM connection with given credentials. Returns ok or error."""
     provider_name = req.provider.lower()
 

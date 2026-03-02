@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS libraries (
     name VARCHAR(255) NOT NULL,
     description TEXT,
     owner VARCHAR(255),
+    visibility VARCHAR(20) NOT NULL DEFAULT 'private',
     config JSONB DEFAULT '{}',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -64,6 +65,7 @@ CREATE INDEX IF NOT EXISTS idx_documents_section ON documents(section);
 CREATE INDEX IF NOT EXISTS idx_documents_hash ON documents(content_hash);
 CREATE INDEX IF NOT EXISTS idx_chunks_library ON chunks(library_id);
 CREATE INDEX IF NOT EXISTS idx_chunks_document ON chunks(document_id);
+CREATE INDEX IF NOT EXISTS idx_libraries_visibility ON libraries(visibility);
 
 -- Topics table (auto-tagged, per library)
 CREATE TABLE IF NOT EXISTS topics (
@@ -84,3 +86,50 @@ CREATE TABLE IF NOT EXISTS document_topics (
 );
 
 CREATE INDEX IF NOT EXISTS idx_topics_library ON topics(library_id);
+
+-- Conversations table (chat history)
+CREATE TABLE IF NOT EXISTS conversations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    library_id INTEGER NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+    user_id TEXT,
+    title TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Messages within conversations
+CREATE TABLE IF NOT EXISTS messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+    content TEXT NOT NULL,
+    sources_json JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_conversations_library ON conversations(library_id);
+CREATE INDEX IF NOT EXISTS idx_conversations_user ON conversations(user_id);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
+
+-- Failed embedding tracking (retry queue)
+CREATE TABLE IF NOT EXISTS failed_embeddings (
+    id SERIAL PRIMARY KEY,
+    chunk_id INTEGER NOT NULL REFERENCES chunks(id) ON DELETE CASCADE,
+    library_id INTEGER NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+    error TEXT NOT NULL,
+    attempts INTEGER DEFAULT 1,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    last_attempt TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(chunk_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_failed_embeddings_library ON failed_embeddings(library_id);
+
+-- Rate limiting persistence
+CREATE TABLE IF NOT EXISTS rate_limits (
+    id SERIAL PRIMARY KEY,
+    key TEXT NOT NULL,
+    timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_rate_limits_key_ts ON rate_limits(key, timestamp);

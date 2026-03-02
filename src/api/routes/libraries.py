@@ -1,12 +1,15 @@
 """Library CRUD — create, list, get, update, delete libraries."""
 
 import re
+from typing import Literal
+
 import psycopg2
 import psycopg2.extras
 from fastapi import APIRouter, HTTPException, Request, Query
 from pydantic import BaseModel
 
 from config.settings import DATABASE_URL
+from src.api.auth import require_auth, is_admin, check_library_read_access, check_library_write_access
 
 router = APIRouter()
 
@@ -15,12 +18,14 @@ class LibraryCreate(BaseModel):
     name: str
     slug: str
     description: str = ""
+    visibility: Literal["public", "private"] = "private"
     config: dict = {}
 
 
 class LibraryUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
+    visibility: Literal["public", "private"] | None = None
     config: dict | None = None
 
 
@@ -30,6 +35,7 @@ class LibraryResponse(BaseModel):
     name: str
     description: str | None
     owner: str | None
+    visibility: str
     config: dict
     created_at: str
     updated_at: str
@@ -44,12 +50,24 @@ def _validate_slug(slug: str):
 
 @router.get("/libraries", response_model=list[LibraryResponse])
 def list_libraries(request: Request):
-    """List all libraries (optionally filtered to current user's)."""
+    """List libraries filtered by access: anon sees public, authed sees public + own, admin sees all."""
     user = request.state.remote_user
+    groups = request.state.remote_groups
+
     conn = psycopg2.connect(DATABASE_URL)
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("""
+            if user and "admins" in groups:
+                where = ""
+                params: list = []
+            elif user:
+                where = "WHERE (l.visibility = 'public' OR l.owner = %s)"
+                params = [user]
+            else:
+                where = "WHERE l.visibility = 'public'"
+                params = []
+
+            cur.execute(f"""
                 SELECT l.*,
                        COALESCE(d.doc_count, 0) as document_count,
                        COALESCE(c.chunk_count, 0) as chunk_count
@@ -60,8 +78,9 @@ def list_libraries(request: Request):
                 LEFT JOIN (
                     SELECT library_id, COUNT(*) as chunk_count FROM chunks WHERE embedding IS NOT NULL GROUP BY library_id
                 ) c ON c.library_id = l.id
+                {where}
                 ORDER BY l.updated_at DESC
-            """)
+            """, params)
             rows = cur.fetchall()
     finally:
         conn.close()
@@ -73,6 +92,7 @@ def list_libraries(request: Request):
             name=row["name"],
             description=row["description"],
             owner=row["owner"],
+            visibility=row["visibility"],
             config=row["config"] or {},
             created_at=str(row["created_at"]),
             updated_at=str(row["updated_at"]),
@@ -85,13 +105,20 @@ def list_libraries(request: Request):
 
 @router.post("/libraries", response_model=LibraryResponse, status_code=201)
 def create_library(lib: LibraryCreate, request: Request):
-    """Create a new library."""
+    """Create a new library (authenticated users only)."""
+    user = require_auth(request)
     _validate_slug(lib.slug)
-    user = request.state.remote_user
 
     conn = psycopg2.connect(DATABASE_URL)
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            # Library creation quotas
+            max_libs = 100 if is_admin(request) else 10
+            cur.execute("SELECT COUNT(*) FROM libraries WHERE owner = %s", (user,))
+            count = cur.fetchone()[0]
+            if count >= max_libs:
+                raise HTTPException(status_code=403, detail=f"Library limit reached ({max_libs})")
+
             cur.execute(
                 "SELECT id FROM libraries WHERE slug = %s", (lib.slug,)
             )
@@ -99,10 +126,10 @@ def create_library(lib: LibraryCreate, request: Request):
                 raise HTTPException(status_code=409, detail=f"Library with slug '{lib.slug}' already exists")
 
             cur.execute("""
-                INSERT INTO libraries (slug, name, description, owner, config)
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO libraries (slug, name, description, owner, visibility, config)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 RETURNING *
-            """, (lib.slug, lib.name, lib.description, user,
+            """, (lib.slug, lib.name, lib.description, user, lib.visibility,
                   psycopg2.extras.Json(lib.config)))
             row = cur.fetchone()
             conn.commit()
@@ -115,6 +142,7 @@ def create_library(lib: LibraryCreate, request: Request):
         name=row["name"],
         description=row["description"],
         owner=row["owner"],
+        visibility=row["visibility"],
         config=row["config"] or {},
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
@@ -122,7 +150,7 @@ def create_library(lib: LibraryCreate, request: Request):
 
 
 @router.get("/libraries/{library_id}", response_model=LibraryResponse)
-def get_library(library_id: int):
+def get_library(library_id: int, request: Request):
     """Get library detail with corpus stats."""
     conn = psycopg2.connect(DATABASE_URL)
     try:
@@ -147,12 +175,15 @@ def get_library(library_id: int):
     if not row:
         raise HTTPException(status_code=404, detail="Library not found")
 
+    check_library_read_access(dict(row), request)
+
     return LibraryResponse(
         id=row["id"],
         slug=row["slug"],
         name=row["name"],
         description=row["description"],
         owner=row["owner"],
+        visibility=row["visibility"],
         config=row["config"] or {},
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
@@ -162,7 +193,7 @@ def get_library(library_id: int):
 
 
 @router.get("/libraries/by-slug/{slug}", response_model=LibraryResponse)
-def get_library_by_slug(slug: str):
+def get_library_by_slug(slug: str, request: Request):
     """Get library by slug with corpus stats."""
     conn = psycopg2.connect(DATABASE_URL)
     try:
@@ -187,12 +218,15 @@ def get_library_by_slug(slug: str):
     if not row:
         raise HTTPException(status_code=404, detail="Library not found")
 
+    check_library_read_access(dict(row), request)
+
     return LibraryResponse(
         id=row["id"],
         slug=row["slug"],
         name=row["name"],
         description=row["description"],
         owner=row["owner"],
+        visibility=row["visibility"],
         config=row["config"] or {},
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
@@ -204,9 +238,6 @@ def get_library_by_slug(slug: str):
 @router.patch("/libraries/{library_id}", response_model=LibraryResponse)
 def update_library(library_id: int, update: LibraryUpdate, request: Request):
     """Update library config (owner or admin only)."""
-    user = request.state.remote_user
-    groups = request.state.remote_groups
-
     conn = psycopg2.connect(DATABASE_URL)
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
@@ -215,8 +246,7 @@ def update_library(library_id: int, update: LibraryUpdate, request: Request):
             if not existing:
                 raise HTTPException(status_code=404, detail="Library not found")
 
-            if existing["owner"] != user and "admins" not in groups:
-                raise HTTPException(status_code=403, detail="Only the library owner or admins can update")
+            check_library_write_access(dict(existing), request)
 
             sets = []
             params = []
@@ -226,6 +256,9 @@ def update_library(library_id: int, update: LibraryUpdate, request: Request):
             if update.description is not None:
                 sets.append("description = %s")
                 params.append(update.description)
+            if update.visibility is not None:
+                sets.append("visibility = %s")
+                params.append(update.visibility)
             if update.config is not None:
                 sets.append("config = %s")
                 params.append(psycopg2.extras.Json(update.config))
@@ -250,6 +283,7 @@ def update_library(library_id: int, update: LibraryUpdate, request: Request):
         name=row["name"],
         description=row["description"],
         owner=row["owner"],
+        visibility=row["visibility"],
         config=row["config"] or {},
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
@@ -259,18 +293,15 @@ def update_library(library_id: int, update: LibraryUpdate, request: Request):
 @router.delete("/libraries/{library_id}", status_code=204)
 def delete_library(library_id: int, request: Request):
     """Delete a library and all its content (owner or admin only)."""
-    user = request.state.remote_user
-    groups = request.state.remote_groups
-
     conn = psycopg2.connect(DATABASE_URL)
     try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT owner FROM libraries WHERE id = %s", (library_id,))
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT * FROM libraries WHERE id = %s", (library_id,))
             row = cur.fetchone()
             if not row:
                 raise HTTPException(status_code=404, detail="Library not found")
-            if row[0] != user and "admins" not in groups:
-                raise HTTPException(status_code=403, detail="Only the library owner or admins can delete")
+
+            check_library_write_access(dict(row), request)
 
             cur.execute("DELETE FROM libraries WHERE id = %s", (library_id,))
             conn.commit()

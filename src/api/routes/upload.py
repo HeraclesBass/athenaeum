@@ -1,6 +1,7 @@
 """Document upload + auto-ingest pipeline."""
 
 import hashlib
+import logging
 import os
 import tempfile
 
@@ -12,7 +13,11 @@ from pydantic import BaseModel
 from config.settings import DATABASE_URL, DATA_DIR
 from src.ingestion.pdf_loader import extract_sections_from_pdf, extract_text_from_file
 from src.ingestion.chunker import chunk_text
+from src.ingestion.cluster import cluster_library
 from src.embeddings.provider import embed_texts
+from src.api.auth import require_auth, check_library_write_access
+
+logger = logging.getLogger("athenaeum.upload")
 
 router = APIRouter()
 
@@ -30,15 +35,18 @@ class UploadResponse(BaseModel):
 @router.post("/libraries/{library_id}/upload", response_model=UploadResponse)
 async def upload_document(library_id: int, request: Request, file: UploadFile = File(...)):
     """Upload a PDF or text file, extract text, chunk, and embed."""
-    # Validate library exists
+    require_auth(request)
+
+    # Validate library exists and check write access
     conn = psycopg2.connect(DATABASE_URL)
     try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT id, slug FROM libraries WHERE id = %s", (library_id,))
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT * FROM libraries WHERE id = %s", (library_id,))
             lib_row = cur.fetchone()
             if not lib_row:
                 raise HTTPException(status_code=404, detail="Library not found")
-            lib_slug = lib_row[1]
+            check_library_write_access(dict(lib_row), request)
+            lib_slug = lib_row["slug"]
     finally:
         conn.close()
 
@@ -132,13 +140,29 @@ async def upload_document(library_id: int, request: Request, file: UploadFile = 
                     for i in range(0, len(chunk_texts), batch_size):
                         batch_texts = chunk_texts[i:i + batch_size]
                         batch_ids = chunk_records[i:i + batch_size]
-                        embeddings = embed_texts(batch_texts)
-                        for cid, emb in zip(batch_ids, embeddings):
-                            cur.execute(
-                                "UPDATE chunks SET embedding = %s WHERE id = %s",
-                                (str(emb), cid)
-                            )
-                            chunks_embedded += 1
+                        try:
+                            embeddings = embed_texts(batch_texts)
+                            for cid, emb in zip(batch_ids, embeddings):
+                                cur.execute(
+                                    "UPDATE chunks SET embedding = %s WHERE id = %s",
+                                    (str(emb), cid)
+                                )
+                                chunks_embedded += 1
+                        except Exception as emb_err:
+                            # Track failed chunks for retry
+                            for cid in batch_ids:
+                                cur.execute("""
+                                    INSERT INTO failed_embeddings (chunk_id, library_id, error)
+                                    VALUES (%s, %s, %s)
+                                    ON CONFLICT (chunk_id) DO UPDATE SET
+                                        attempts = failed_embeddings.attempts + 1,
+                                        error = EXCLUDED.error,
+                                        last_attempt = NOW()
+                                """, (cid, library_id, str(emb_err)[:500]))
+                            logger.warning("embedding_batch_failed", extra={"extra": {
+                                "library_id": library_id, "batch_size": len(batch_ids),
+                                "error": str(emb_err)[:200],
+                            }})
 
             conn.commit()
     except HTTPException:
@@ -149,6 +173,15 @@ async def upload_document(library_id: int, request: Request, file: UploadFile = 
         raise HTTPException(status_code=500, detail=f"Ingestion failed: {e}")
     finally:
         conn.close()
+
+    # Auto-cluster topics after successful ingestion
+    if chunks_embedded > 0:
+        try:
+            cluster_library(library_id)
+        except Exception as e:
+            logger.warning("topic_clustering_failed", extra={"extra": {
+                "library_id": library_id, "error": str(e),
+            }})
 
     return UploadResponse(
         filename=file.filename,

@@ -1,4 +1,4 @@
-.PHONY: run stop dev logs help build
+.PHONY: run stop dev logs help build test
 
 # Load .env if present
 ifneq (,$(wildcard .env))
@@ -14,6 +14,7 @@ help:
 	@echo "  build  Rebuild all containers"
 	@echo "  dev    Run API with hot reload (local dev)"
 	@echo "  logs   Tail API logs"
+	@echo "  test   Run pytest suite (requires running containers)"
 
 run:
 	docker compose up -d
@@ -29,3 +30,6 @@ dev:
 
 logs:
 	docker compose logs -f api
+
+test:
+	PYTHONPATH=. pytest tests/ -v

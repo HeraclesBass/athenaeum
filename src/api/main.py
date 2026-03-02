@@ -1,9 +1,46 @@
 """Athenaeum API — Personal semantic library platform."""
 
+import logging
+import json
+import time
+import sys
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.api.routes import libraries, upload, search, chat, browse, settings
+from src.api.routes import libraries, upload, search, chat, browse, settings, user
+
+
+# ── Structured JSON logging ──────────────────────────────────────────────────
+
+class JSONFormatter(logging.Formatter):
+    def format(self, record):
+        log = {
+            "timestamp": self.formatTime(record, self.datefmt),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        if hasattr(record, "extra"):
+            log.update(record.extra)
+        if record.exc_info and record.exc_info[0]:
+            log["exception"] = self.formatException(record.exc_info)
+        return json.dumps(log, default=str)
+
+
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(JSONFormatter())
+logging.root.handlers = [handler]
+logging.root.setLevel(logging.INFO)
+# Quiet noisy libraries
+logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
+logger = logging.getLogger("athenaeum")
+
+
+# ── App ───────────────────────────────────────────────────────────────────────
 
 app = FastAPI(
     title="Athenaeum",
@@ -21,10 +58,33 @@ app.add_middleware(
 
 @app.middleware("http")
 async def inject_auth_headers(request: Request, call_next):
-    """Extract Authelia auth headers and inject into request state."""
-    request.state.remote_user = request.headers.get("Remote-User", "anonymous")
+    """Extract Authelia auth headers, inject into request state, log request."""
+    request.state.remote_user = request.headers.get("Remote-User", "")
     request.state.remote_groups = request.headers.get("Remote-Groups", "")
+    request.state.remote_name = request.headers.get("Remote-Name", "")
+    request.state.remote_email = request.headers.get("Remote-Email", "")
+    request.state.is_authenticated = bool(request.state.remote_user)
+
+    start = time.time()
     response = await call_next(request)
+    duration_ms = round((time.time() - start) * 1000, 1)
+
+    # Skip health check noise
+    if request.url.path != "/health":
+        logger.info(
+            "request",
+            extra={
+                "extra": {
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status": response.status_code,
+                    "duration_ms": duration_ms,
+                    "user": request.state.remote_user or "anonymous",
+                    "ip": request.headers.get("X-Real-IP", request.client.host if request.client else "unknown"),
+                }
+            },
+        )
+
     return response
 
 
@@ -34,6 +94,7 @@ app.include_router(search.router, prefix="/api", tags=["search"])
 app.include_router(chat.router, prefix="/api", tags=["chat"])
 app.include_router(browse.router, prefix="/api", tags=["browse"])
 app.include_router(settings.router, prefix="/api", tags=["settings"])
+app.include_router(user.router, prefix="/api", tags=["user"])
 
 
 @app.get("/health")

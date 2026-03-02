@@ -13,6 +13,7 @@ make run                          # Start all 3 services (db + api + frontend)
 make build                        # Rebuild all containers
 make dev                          # Local API hot-reload on port 8140
 make logs                         # Tail API logs
+make test                         # Run pytest suite (requires running containers)
 make stop                         # Stop all containers
 ```
 
@@ -39,48 +40,74 @@ Multi-library: all content tables have `library_id` FK with CASCADE delete. Libr
 | GET | `/api/libraries/by-slug/{slug}` | Get library by URL slug |
 | PATCH | `/api/libraries/{id}` | Update library (owner/admin) |
 | DELETE | `/api/libraries/{id}` | Delete library + all content (owner/admin) |
-| POST | `/api/libraries/{id}/upload` | Upload PDF/TXT/MD → auto-ingest |
+| POST | `/api/libraries/{id}/upload` | Upload PDF/TXT/MD → auto-ingest (multi-file) |
+| POST | `/api/libraries/{id}/retry-embeddings` | Retry failed embeddings (auth required) |
 | GET | `/api/libraries/{id}/search?q=...` | Semantic search within library |
-| POST | `/api/libraries/{id}/chat` | RAG chat `{message, context_limit}` |
+| POST | `/api/libraries/{id}/chat` | RAG chat `{message, context_limit, conversation_id}` |
+| GET | `/api/libraries/{id}/conversations` | List chat conversations |
+| POST | `/api/libraries/{id}/conversations` | Create conversation |
+| GET | `/api/conversations/{id}` | Get conversation + messages |
+| POST | `/api/conversations/{id}/messages` | Add message to conversation |
+| DELETE | `/api/conversations/{id}` | Delete conversation |
 | GET | `/api/libraries/{id}/documents` | Browse documents |
 | GET | `/api/libraries/{id}/documents/{doc_id}` | Full document text |
 | GET | `/api/libraries/{id}/topics` | Auto-discovered topics |
-| GET | `/api/libraries/{id}/info` | Library metadata + live corpus stats |
+| GET | `/api/libraries/{id}/info` | Library metadata + corpus stats + failed embeddings |
 | GET | `/api/settings` | Current LLM config |
+| GET | `/api/user` | Current authenticated user info |
 
 ## Project Structure
 
 ```
 config/
-├── init.sql             # Multi-library schema (libraries, documents, chunks, topics)
+├── init.sql             # Schema: libraries, documents, chunks, topics, conversations,
+│                        #   messages, failed_embeddings, rate_limits
 └── settings.py          # DATABASE_URL, LLM config, embedding model
 src/
-├── api/main.py          # FastAPI app + Authelia auth middleware
-├── api/routes/
-│   ├── libraries.py     # Library CRUD
-│   ├── upload.py        # PDF upload + auto-ingest pipeline
-│   ├── search.py        # Semantic search (pgvector cosine)
-│   ├── chat.py          # RAG chat with per-library persona
-│   ├── browse.py        # Document browsing + topics + info
-│   └── settings.py      # LLM provider config
+├── mcp_server.py        # MCP server (stdio) — search/chat/browse tools
+├── api/
+│   ├── main.py          # FastAPI app + Authelia auth + Loki logging + rate limiting
+│   ├── auth.py          # Auth helpers (require_auth, require_admin decorators)
+│   ├── rate_limit.py    # DB-backed sliding window rate limiter (fallback: in-memory)
+│   └── routes/
+│       ├── libraries.py # Library CRUD (owner/admin gated)
+│       ├── upload.py    # Multi-file upload + auto-ingest + failed embedding queue
+│       ├── search.py    # Semantic search (pgvector cosine)
+│       ├── chat.py      # RAG chat with inline citations [1][2], conversation history
+│       ├── browse.py    # Documents, topics, info, retry-embeddings
+│       ├── settings.py  # LLM provider config
+│       └── user.py      # Current user endpoint
 ├── embeddings/provider.py  # Singleton SentenceTransformer (all-mpnet-base-v2)
 ├── ingestion/
 │   ├── pdf_loader.py    # PDF section extraction (pdfplumber)
 │   ├── chunker.py       # Token-based text chunking
+│   ├── cluster.py       # K-means topic clustering (wired into ingestion)
 │   ├── embed.py         # Batch embedding (Gemini)
 │   └── embed_local.py   # Local embedding (sentence-transformers)
 ├── llm/provider.py      # Abstract LLM + 5 providers
 └── db.py                # Shared connection helper
 frontend/
 ├── app/
-│   ├── page.tsx                        # Library catalog (homepage)
+│   ├── page.tsx                        # Landing page + library catalog
+│   ├── error.tsx                       # Global error boundary
+│   ├── layout.tsx                      # Root layout
 │   └── library/[slug]/
-│       ├── page.tsx                    # Library dashboard
-│       ├── chat/page.tsx               # RAG chat interface
-│       └── upload/page.tsx             # Document upload
-├── components/Nav.tsx                  # Breadcrumb navigation
-└── lib/api.ts                          # All API calls (typed)
-tests/                                  # Pytest suite
+│       ├── page.tsx                    # Library dashboard (search + browse)
+│       ├── layout.tsx                  # Library layout
+│       ├── error.tsx                   # Library error boundary
+│       ├── chat/page.tsx               # RAG chat (citations, sidebar, history)
+│       ├── upload/page.tsx             # Multi-file drag-and-drop upload
+│       └── settings/page.tsx           # Library settings
+├── components/
+│   ├── Nav.tsx                         # Breadcrumb navigation (responsive)
+│   └── ErrorBoundary.tsx               # Reusable error boundary component
+└── lib/
+    ├── api.ts                          # All API calls (typed)
+    ├── auth.tsx                        # Auth context provider
+    └── useKeyboard.ts                  # Keyboard shortcuts hook (/, n, Esc)
+tests/
+└── test_api.py                         # 30 integration tests
+mcp.json                                # MCP server config for Claude Code
 ```
 
 ## Database
@@ -88,10 +115,14 @@ tests/                                  # Pytest suite
 ```
 PostgreSQL 16 + pgvector @ 127.0.0.1:5442
 
-libraries   → namespace table (slug, name, config JSONB)
-documents   → full document text (library_id FK, content_hash dedup)
-chunks      → vectorized text (embedding vector(768), HNSW index)
-topics      → auto-discovered topics per library
+libraries          → namespace table (slug, name, config JSONB)
+documents          → full document text (library_id FK, content_hash dedup)
+chunks             → vectorized text (embedding vector(768), HNSW index)
+topics             → auto-discovered topics per library
+conversations      → chat sessions per library/user
+messages           → chat messages with sources_json
+failed_embeddings  → retry queue for embedding failures
+rate_limits        → DB-backed sliding window rate limit entries
 ```
 
 ```bash
@@ -123,8 +154,9 @@ LLM_BASE_URL=http://free_llm_api:8000/v1
 ## Testing
 
 ```bash
-pytest tests/ -v                  # All tests (requires running containers)
-pytest tests/test_api.py -v       # API smoke tests
+make test                         # Run all 30 tests (requires running containers)
+pytest tests/ -v                  # Same, without Makefile
+pytest tests/test_api.py -k chat  # Run only chat-related tests
 ```
 
 ## Deployment

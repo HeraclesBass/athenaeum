@@ -9,11 +9,21 @@ export interface Library {
   name: string;
   description: string | null;
   owner: string | null;
+  visibility: "public" | "private";
   config: Record<string, any>;
   created_at: string;
   updated_at: string;
   document_count: number;
   chunk_count: number;
+}
+
+export interface UserInfo {
+  authenticated: boolean;
+  username?: string;
+  display_name?: string;
+  email?: string | null;
+  groups?: string[];
+  is_admin?: boolean;
 }
 
 export interface SearchResult {
@@ -31,15 +41,46 @@ export interface SearchResponse {
   total: number;
 }
 
-export interface ChatSource {
+export interface SourceDetail {
+  index: number;
   title: string;
   section: string | null;
+  text: string;
   similarity: number;
+  document_id: number;
+  page_start: number | null;
+  page_end: number | null;
 }
 
 export interface ChatResponse {
-  response: string;
-  sources: ChatSource[];
+  answer: string;
+  sources: SourceDetail[];
+  suggestions: string[];
+  conversation_id: string;
+}
+
+export interface ConversationSummary {
+  id: string;
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+}
+
+export interface MessageDetail {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  sources_json: SourceDetail[] | null;
+  created_at: string;
+}
+
+export interface ConversationDetail {
+  id: string;
+  library_id: number;
+  title: string | null;
+  created_at: string;
+  messages: MessageDetail[];
 }
 
 export interface DocumentSummary {
@@ -107,6 +148,10 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  // ── User ───────────────────────────────────────────────────
+
+  me: (): Promise<UserInfo> => apiFetch("/api/me"),
+
   // ── Libraries ──────────────────────────────────────────────
 
   libraries: (): Promise<Library[]> => apiFetch("/api/libraries"),
@@ -115,6 +160,7 @@ export const api = {
     name: string;
     slug: string;
     description?: string;
+    visibility?: "public" | "private";
     config?: Record<string, any>;
   }): Promise<Library> =>
     apiFetch("/api/libraries", {
@@ -130,7 +176,7 @@ export const api = {
 
   updateLibrary: (
     id: number,
-    data: { name?: string; description?: string; config?: Record<string, any> }
+    data: { name?: string; description?: string; visibility?: "public" | "private"; config?: Record<string, any> }
   ): Promise<Library> =>
     apiFetch(`/api/libraries/${id}`, {
       method: "PATCH",
@@ -153,12 +199,26 @@ export const api = {
   chat: (
     libraryId: number,
     message: string,
-    contextLimit = 10
+    contextLimit = 10,
+    conversationId?: string
   ): Promise<ChatResponse> =>
     apiFetch(`/api/libraries/${libraryId}/chat`, {
       method: "POST",
-      body: JSON.stringify({ message, context_limit: contextLimit }),
+      body: JSON.stringify({
+        message,
+        context_limit: contextLimit,
+        conversation_id: conversationId ?? null,
+      }),
     }),
+
+  conversations: (libraryId: number): Promise<ConversationSummary[]> =>
+    apiFetch(`/api/libraries/${libraryId}/conversations`),
+
+  conversation: (conversationId: string): Promise<ConversationDetail> =>
+    apiFetch(`/api/conversations/${conversationId}`),
+
+  deleteConversation: (conversationId: string): Promise<void> =>
+    apiFetch(`/api/conversations/${conversationId}`, { method: "DELETE" }),
 
   documents: (
     libraryId: number,
