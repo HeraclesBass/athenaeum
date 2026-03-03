@@ -127,7 +127,7 @@ def test_connection(req: TestRequest, request: Request):
             client = OpenAI(
                 api_key=key,
                 base_url="https://openrouter.ai/api/v1",
-                default_headers={"HTTP-Referer": "https://athenaeum.herakles.dev", "X-Title": "Athenaeum"},
+                default_headers={"HTTP-Referer": os.environ.get("APP_URL", "https://github.com/HeraclesBass/athenaeum"), "X-Title": "Athenaeum"},
             )
             resp = client.chat.completions.create(
                 model=model_name, max_tokens=10,

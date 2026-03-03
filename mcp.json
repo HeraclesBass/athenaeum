@@ -3,14 +3,12 @@
     "athenaeum": {
       "command": "python",
       "args": ["-m", "src.mcp_server"],
-      "cwd": "/home/hercules/athenaeum",
       "env": {
         "ATHENAEUM_DB_PASSWORD": "${ATHENAEUM_DB_PASSWORD}",
         "LLM_PROVIDER": "${LLM_PROVIDER:-openrouter}",
         "LLM_MODEL": "${LLM_MODEL:-}",
         "LLM_API_KEY": "${LLM_API_KEY:-}",
-        "OPENROUTER_API_KEY": "${OPENROUTER_API_KEY:-}",
-        "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY:-}"
+        "OPENROUTER_API_KEY": "${OPENROUTER_API_KEY:-}"
       }
     }
   }

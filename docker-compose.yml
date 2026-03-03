@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_DB: athenaeum
       POSTGRES_USER: athenaeum
-      POSTGRES_PASSWORD: ${ATHENAEUM_DB_PASSWORD:?Set ATHENAEUM_DB_PASSWORD in .env or hercules.env}
+      POSTGRES_PASSWORD: ${ATHENAEUM_DB_PASSWORD:?Set ATHENAEUM_DB_PASSWORD in .env}
     volumes:
       - athenaeum_pgdata:/var/lib/postgresql/data
       - ./config/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -27,20 +27,11 @@ services:
     environment:
       DATABASE_URL: postgresql://athenaeum:${ATHENAEUM_DB_PASSWORD}@db:5432/athenaeum
       PYTHONPATH: /app
-      LLM_PROVIDER: openai
-      LLM_MODEL: auto
-      LLM_API_KEY: "free"
-      LLM_BASE_URL: "http://free_llm_api:8000/v1"
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
-        loki-batch-size: "400"
-        loki-retries: "5"
-        loki-external-labels: "service=athenaeum-api,environment=prod,type=api"
-    networks:
-      - default
-      - hercules_platform
+      LLM_PROVIDER: ${LLM_PROVIDER:-openrouter}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      APP_URL: ${APP_URL:-}
     depends_on:
       db:
         condition: service_healthy
@@ -57,18 +48,10 @@ services:
       - "127.0.0.1:3140:3000"
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8140}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3140}
+      NEXT_PUBLIC_AUTH_URL: ${NEXT_PUBLIC_AUTH_URL:-}
     depends_on:
       - api
-
-networks:
-  default:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 10.200.0.0/24
-  hercules_platform:
-    external: true
-    name: hercules-platform_default
 
 volumes:
   athenaeum_pgdata:

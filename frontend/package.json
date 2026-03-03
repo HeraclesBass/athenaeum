@@ -1,6 +1,8 @@
 {
-  "name": "alan-watts-library-frontend",
-  "version": "0.1.0",
+  "name": "athenaeum-library",
+  "version": "1.0.0",
+  "description": "Semantic library platform frontend — upload documents, search semantically, chat with AI",
+  "license": "MIT",
   "private": true,
   "scripts": {
     "dev": "next dev",

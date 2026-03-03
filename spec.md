@@ -1,16 +1,14 @@
-# Athenaeum — V11 Launch Spec
+# Athenaeum — Development Spec
 
 **Status: ALL 7 PHASES COMPLETE** (2026-03-03)
 
 ## Intent
 
-Personal semantic library platform for a small team. Upload documents (PDF, text, markdown),
+Personal semantic library platform. Upload documents (PDF, text, markdown),
 search semantically via vector embeddings, and chat with AI grounded in your content.
 Multi-library isolation with per-library personas. Research-grade citation UX.
 
-**Target**: Authelia SSO users (friends/team), with public library sharing for visitors.
-**Live**: https://athenaeum.herakles.dev
-**Forked from**: alan-watts RAG scaffold
+**Target**: Self-hosted for individuals or small teams. SSO-compatible with public library sharing.
 
 ## Stack
 
@@ -20,13 +18,11 @@ Multi-library isolation with per-library personas. Research-grade citation UX.
 | Database | PostgreSQL 16 + pgvector | 5442 |
 | Embeddings | all-mpnet-base-v2 (local, 768d) | — |
 | Frontend | Next.js 14 + TypeScript + Tailwind | 3140 |
-| LLM | Free-LLM gateway (OpenAI-compatible) | — |
-| Auth | Authelia SSO (nginx header injection) | — |
-| Domain | athenaeum.herakles.dev | — |
+| LLM | Configurable (OpenRouter, OpenAI, Anthropic, Ollama, Gemini) | — |
+| Auth | SSO via reverse proxy header injection | — |
 
 ## Current State (post-Phase 7)
 
-- 4 libraries deployed (256 docs, 717 chunks — labor law corpus)
 - Full CRUD, multi-file upload, semantic search, RAG chat with inline citations
 - **Cross-library search and chat**: select multiple libraries, one query, globally-ranked results with per-library attribution
 - Cross-library frontend pages at `/search` and `/chat` with library selector component
@@ -34,7 +30,7 @@ Multi-library isolation with per-library personas. Research-grade citation UX.
 - Landing page with hero, feature cards, and public library directory
 - MCP server: 7 tools (list, search, chat, browse, read, multi_search, multi_chat)
 - ~38 integration tests passing (health, CRUD, upload, search, chat, browse, auth, multi-library)
-- Loki structured logging on API container
+- Structured JSON logging on API container
 - DB-backed rate limiting with in-memory fallback
 - Topic clustering wired into ingestion pipeline
 - Mobile-responsive UI with keyboard shortcuts
@@ -42,17 +38,12 @@ Multi-library isolation with per-library personas. Research-grade citation UX.
 - Failed embedding retry queue with admin endpoint
 - **Lighthouse accessibility/usability pass**: WCAG AA contrast, focus indicators, ARIA attributes, skip navigation, JSON-LD, per-page metadata, reduced motion support, loading skeletons, self-hosted fonts
 
-## Protocol
-
-V11
-
 ## Constraints
 
 - DB binds 127.0.0.1 only
-- Secrets in ~/.secrets/hercules.env, never committed
-- NEXT_PUBLIC_API_URL baked at Docker build time
-- Free-LLM gateway: no SSE streaming support — use chunked responses
-- Budget: $0 infrastructure (all self-hosted, free LLM tier)
+- Secrets in `.env`, never committed
+- `NEXT_PUBLIC_API_URL` baked at Docker build time
+- Self-hosted, all embeddings run locally
 
 ---
 

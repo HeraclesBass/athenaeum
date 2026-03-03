@@ -111,7 +111,7 @@ export default function UploadPage() {
         </svg>
         <p className="text-lg mb-2" style={{ color: "var(--muted)" }}>Sign in required</p>
         <p className="text-sm mb-4" style={{ color: "var(--muted-2)" }}>You need to sign in to upload documents.</p>
-        <a href="https://auth.herakles.dev" className="btn btn-primary">Sign in</a>
+        <a href={process.env.NEXT_PUBLIC_AUTH_URL || "/api/auth"} className="btn btn-primary">Sign in</a>
       </div>
     );
   }

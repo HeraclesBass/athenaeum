@@ -11,12 +11,12 @@ import httpx
 
 BASE = os.environ.get("TEST_API_URL", "http://127.0.0.1:8140")
 
-# Auth headers to simulate Authelia SSO (for write operations)
+# Auth headers to simulate SSO (for write operations)
 AUTH_HEADERS = {
     "Remote-User": "test-user",
     "Remote-Groups": "admins",
     "Remote-Name": "Test User",
-    "Remote-Email": "test@herakles.dev",
+    "Remote-Email": "test@example.com",
 }
 
 # Use a longer timeout for LLM-based endpoints

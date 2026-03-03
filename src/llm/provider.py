@@ -130,7 +130,7 @@ class OpenRouterProvider(LLMProvider):
             api_key=self._api_key,
             base_url=self.OPENROUTER_BASE,
             default_headers={
-                "HTTP-Referer": "https://athenaeum.herakles.dev",
+                "HTTP-Referer": os.environ.get("APP_URL", "https://github.com/HeraclesBass/athenaeum"),
                 "X-Title": "Athenaeum",
             },
         )

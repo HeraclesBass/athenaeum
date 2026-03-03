@@ -81,7 +81,7 @@ export default function SettingsPage() {
     return (
       <div className="text-center py-20">
         <p className="text-sm mb-3" style={{ color: "var(--muted)" }}>Sign in to access settings</p>
-        <a href="https://auth.herakles.dev" className="btn btn-primary text-xs">Sign in</a>
+        <a href={process.env.NEXT_PUBLIC_AUTH_URL || "/api/auth"} className="btn btn-primary text-xs">Sign in</a>
       </div>
     );
   }

@@ -108,7 +108,7 @@ export default function HomePage() {
               Create Library
             </button>
           ) : (
-            <a href="https://auth.herakles.dev" className="btn-glow">
+            <a href={process.env.NEXT_PUBLIC_AUTH_URL || "/api/auth"} className="btn-glow">
               Sign in to create your own library
             </a>
           )}
@@ -291,7 +291,7 @@ export default function HomePage() {
       {!auth.authenticated && !loading && publicLibs.length > 0 && (
         <div className="text-center py-8">
           <p className="text-xs" style={{ color: "var(--muted-2)" }}>
-            <a href="https://auth.herakles.dev" style={{ color: "var(--accent)" }}>Sign in</a>
+            <a href={process.env.NEXT_PUBLIC_AUTH_URL || "/api/auth"} style={{ color: "var(--accent)" }}>Sign in</a>
             {" "}to create your own library and upload documents
           </p>
         </div>

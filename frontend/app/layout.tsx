@@ -16,8 +16,10 @@ export const viewport: Viewport = {
   themeColor: "#0c0e12",
 };
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3140";
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://athenaeum.herakles.dev"),
+  metadataBase: new URL(APP_URL),
   title: "Athenaeum — Semantic Library Platform",
   description: "Upload documents, search semantically, and chat with AI that cites its sources. Organize content into libraries with per-library AI personas.",
   openGraph: {
@@ -25,7 +27,7 @@ export const metadata: Metadata = {
     description: "Your documents, searchable and conversational. Upload PDFs, search semantically, chat with AI grounded in your content.",
     siteName: "Athenaeum",
     type: "website",
-    url: "https://athenaeum.herakles.dev",
+    url: APP_URL,
   },
   twitter: {
     card: "summary",
@@ -49,7 +51,7 @@ export default function RootLayout({
               "@context": "https://schema.org",
               "@type": "WebApplication",
               name: "Athenaeum",
-              url: "https://athenaeum.herakles.dev",
+              url: APP_URL,
               description: "Upload documents, search semantically, and chat with AI that cites its sources.",
               applicationCategory: "UtilityApplication",
             }),

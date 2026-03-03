@@ -11,9 +11,7 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   try {
     // Server-side fetch for metadata (uses internal URL or relative)
-    const url = API_URL
-      ? `${API_URL}/api/libraries/by-slug/${params.slug}`
-      : `http://127.0.0.1:8140/api/libraries/by-slug/${params.slug}`;
+    const url = `${API_URL}/api/libraries/by-slug/${params.slug}`;
     const res = await fetch(url, { next: { revalidate: 300 } });
     if (!res.ok) throw new Error("Not found");
     const lib = await res.json();
@@ -30,7 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         description,
         siteName: "Athenaeum",
         type: "website",
-        url: `https://athenaeum.herakles.dev/library/${params.slug}`,
+        url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3140"}/library/${params.slug}`,
       },
       twitter: {
         card: "summary",

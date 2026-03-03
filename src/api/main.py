@@ -58,7 +58,7 @@ app.add_middleware(
 
 @app.middleware("http")
 async def inject_auth_headers(request: Request, call_next):
-    """Extract Authelia auth headers, inject into request state, log request."""
+    """Extract SSO auth headers from reverse proxy, inject into request state, log request."""
     request.state.remote_user = request.headers.get("Remote-User", "")
     request.state.remote_groups = request.headers.get("Remote-Groups", "")
     request.state.remote_name = request.headers.get("Remote-Name", "")

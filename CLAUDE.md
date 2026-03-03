@@ -7,14 +7,13 @@ Named for the Temple of Athena — the classical word for a library or reading r
 ## Quick Start
 
 ```bash
-source ~/.secrets/hercules.env    # REQUIRED before any docker/db commands
-
-make run                          # Start all 3 services (db + api + frontend)
-make build                        # Rebuild all containers
-make dev                          # Local API hot-reload on port 8140
-make logs                         # Tail API logs
-make test                         # Run pytest suite (requires running containers)
-make stop                         # Stop all containers
+cp .env.example .env                  # Configure database password + LLM provider
+make run                              # Start all 3 services (db + api + frontend)
+make build                            # Rebuild all containers
+make dev                              # Local API hot-reload on port 8140
+make logs                             # Tail API logs
+make test                             # Run pytest suite (requires running containers)
+make stop                             # Stop all containers
 ```
 
 ## Architecture
@@ -23,7 +22,7 @@ make stop                         # Stop all containers
 Upload PDF/text → Extract sections (pdfplumber) → Chunk (500 tokens, 50 overlap)
   → Embed (all-mpnet-base-v2, 768d, local) → pgvector HNSW cosine index
   → Semantic search → Top-k chunks + parent documents
-  → RAG prompt (per-library persona from config JSONB) → LLM (free-llm gateway)
+  → RAG prompt (per-library persona from config JSONB) → LLM (configurable)
   → Response grounded in actual document excerpts
 ```
 
@@ -74,7 +73,7 @@ src/
 ├── mcp_server.py        # MCP server (stdio) — 7 tools: list, search, chat, browse,
 │                        #   read, multi_search, multi_chat
 ├── api/
-│   ├── main.py          # FastAPI app + Authelia auth + Loki logging + rate limiting
+│   ├── main.py          # FastAPI app + SSO auth middleware + JSON logging + rate limiting
 │   ├── auth.py          # Auth helpers (require_auth, check_library_read/write_access)
 │   ├── rate_limit.py    # DB-backed sliding window rate limiter (fallback: in-memory)
 │   └── routes/
@@ -147,52 +146,51 @@ rate_limits             → DB-backed sliding window rate limit entries
 ```
 
 ```bash
-source ~/.secrets/hercules.env
 docker compose exec db psql -U athenaeum athenaeum
 ```
 
 ## Auth
 
-Authelia SSO via nginx. Headers injected into every request:
+SSO via reverse proxy header injection. The API reads these headers from every request:
 - `Remote-User` → `request.state.remote_user`
 - `Remote-Groups` → `request.state.remote_groups`
 
+Works with Authelia, Authentik, or any reverse proxy that injects auth headers.
 Library ownership: only the owner or `admins` group can update/delete.
 
 ## Environment
 
-```bash
-# Required
-ATHENAEUM_DB_PASSWORD=...
+See `.env.example` for all configuration options. Required:
 
-# LLM (defaults wired in docker-compose.yml)
-LLM_PROVIDER=openai        # Uses free-llm gateway
-LLM_MODEL=auto
-LLM_API_KEY=free
-LLM_BASE_URL=http://free_llm_api:8000/v1
+```bash
+ATHENAEUM_DB_PASSWORD=...             # PostgreSQL password
+
+# LLM — pick one provider:
+LLM_PROVIDER=openrouter               # openrouter | openai | anthropic | ollama | gemini
+LLM_API_KEY=...                        # API key for your provider
 ```
 
 ## Testing
 
 ```bash
-make test                         # Run all ~38 tests (requires running containers)
-pytest tests/ -v                  # Same, without Makefile
-pytest tests/test_api.py -k chat  # Run only chat-related tests
+make test                              # Run all ~38 tests (requires running containers)
+pytest tests/ -v                       # Same, without Makefile
+pytest tests/test_api.py -k chat       # Run only chat-related tests
 ```
 
 ## Deployment
 
 ```bash
-source ~/.secrets/hercules.env
-
-# Full rebuild with production URL baked into Next.js:
-NEXT_PUBLIC_API_URL=https://athenaeum.herakles.dev docker compose up -d --build
+# Full rebuild with production URLs baked into Next.js:
+NEXT_PUBLIC_API_URL=https://your-domain.com \
+NEXT_PUBLIC_APP_URL=https://your-domain.com \
+  docker compose up -d --build
 
 # Just restart API (picks up src/ changes via volume mount):
 docker compose restart api
 ```
 
-**URLs**: `https://athenaeum.herakles.dev` | API: `127.0.0.1:8140` | DB: `127.0.0.1:5442` | Frontend: `127.0.0.1:3140`
+**Default ports**: API: `8140` | DB: `5442` | Frontend: `3140`
 
 ## Extension Patterns
 
@@ -210,7 +208,7 @@ docker compose restart api
 ## Critical Rules
 
 ### MUST
-- `source ~/.secrets/hercules.env` before docker/db commands
+- Configure `.env` before running docker commands
 - Read files before editing
 - DB binds to `127.0.0.1` only — never `0.0.0.0`
 - `NEXT_PUBLIC_API_URL` must be set at build time (baked into client bundle)
@@ -218,8 +216,4 @@ docker compose restart api
 ### NEVER
 - Expose database port to internet
 - Hardcode API keys or passwords
-- Create docs files unless asked
-
----
-
-**Port**: 8140 | **Status**: active | **Forked from**: alan-watts scaffold
+- Commit `.env` files to git
