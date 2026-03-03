@@ -27,53 +27,62 @@ Upload PDF/text → Extract sections (pdfplumber) → Chunk (500 tokens, 50 over
   → Response grounded in actual document excerpts
 ```
 
-Multi-library: all content tables have `library_id` FK with CASCADE delete. Libraries are fully isolated namespaces.
+Multi-library: all content tables have `library_id` FK with CASCADE delete. Libraries can be searched/chatted individually or across multiple libraries at once via `POST /api/search` and `POST /api/chat` with `library_ids[]`.
 
 ## API (port 8140)
 
 | Method | Path | Purpose |
 |--------|------|---------|
 | GET | `/health` | Health check |
+| GET | `/api/me` | Current authenticated user info |
+| GET | `/api/settings` | Current LLM config |
+| | **Libraries** | |
 | GET | `/api/libraries` | List all libraries |
 | POST | `/api/libraries` | Create library `{name, slug, description, config}` |
 | GET | `/api/libraries/{id}` | Library detail + corpus stats |
 | GET | `/api/libraries/by-slug/{slug}` | Get library by URL slug |
 | PATCH | `/api/libraries/{id}` | Update library (owner/admin) |
 | DELETE | `/api/libraries/{id}` | Delete library + all content (owner/admin) |
+| | **Single-library** | |
 | POST | `/api/libraries/{id}/upload` | Upload PDF/TXT/MD → auto-ingest (multi-file) |
 | POST | `/api/libraries/{id}/retry-embeddings` | Retry failed embeddings (auth required) |
 | GET | `/api/libraries/{id}/search?q=...` | Semantic search within library |
 | POST | `/api/libraries/{id}/chat` | RAG chat `{message, context_limit, conversation_id}` |
-| GET | `/api/libraries/{id}/conversations` | List chat conversations |
-| POST | `/api/libraries/{id}/conversations` | Create conversation |
-| GET | `/api/conversations/{id}` | Get conversation + messages |
-| POST | `/api/conversations/{id}/messages` | Add message to conversation |
-| DELETE | `/api/conversations/{id}` | Delete conversation |
+| GET | `/api/libraries/{id}/conversations` | List chat conversations for library |
 | GET | `/api/libraries/{id}/documents` | Browse documents |
 | GET | `/api/libraries/{id}/documents/{doc_id}` | Full document text |
 | GET | `/api/libraries/{id}/topics` | Auto-discovered topics |
 | GET | `/api/libraries/{id}/info` | Library metadata + corpus stats + failed embeddings |
-| GET | `/api/settings` | Current LLM config |
-| GET | `/api/user` | Current authenticated user info |
+| | **Cross-library** | |
+| POST | `/api/search` | Search across libraries `{query, library_ids[], limit}` |
+| POST | `/api/chat` | Chat across libraries `{message, library_ids[], context_limit, conversation_id}` |
+| GET | `/api/conversations` | List multi-library conversations |
+| | **Conversations (shared)** | |
+| GET | `/api/conversations/{id}` | Get conversation + messages (single or multi-library) |
+| DELETE | `/api/conversations/{id}` | Delete conversation |
 
 ## Project Structure
 
 ```
 config/
 ├── init.sql             # Schema: libraries, documents, chunks, topics, conversations,
-│                        #   messages, failed_embeddings, rate_limits
+│                        #   messages, conversation_libraries, failed_embeddings, rate_limits
+├── migrations/          # Standalone SQL migrations for running DB
+│   └── 001_multi_library.sql
 └── settings.py          # DATABASE_URL, LLM config, embedding model
 src/
-├── mcp_server.py        # MCP server (stdio) — search/chat/browse tools
+├── mcp_server.py        # MCP server (stdio) — 7 tools: list, search, chat, browse,
+│                        #   read, multi_search, multi_chat
 ├── api/
 │   ├── main.py          # FastAPI app + Authelia auth + Loki logging + rate limiting
-│   ├── auth.py          # Auth helpers (require_auth, require_admin decorators)
+│   ├── auth.py          # Auth helpers (require_auth, check_library_read/write_access)
 │   ├── rate_limit.py    # DB-backed sliding window rate limiter (fallback: in-memory)
 │   └── routes/
 │       ├── libraries.py # Library CRUD (owner/admin gated)
 │       ├── upload.py    # Multi-file upload + auto-ingest + failed embedding queue
-│       ├── search.py    # Semantic search (pgvector cosine)
-│       ├── chat.py      # RAG chat with inline citations [1][2], conversation history
+│       ├── search.py    # Single-library semantic search (pgvector cosine)
+│       ├── chat.py      # Single-library RAG chat, conversation CRUD
+│       ├── multi.py     # Cross-library search + chat + conversations
 │       ├── browse.py    # Documents, topics, info, retry-embeddings
 │       ├── settings.py  # LLM provider config
 │       └── user.py      # Current user endpoint
@@ -89,24 +98,35 @@ src/
 frontend/
 ├── app/
 │   ├── page.tsx                        # Landing page + library catalog
+│   ├── loading.tsx                     # Root loading skeleton (Suspense)
 │   ├── error.tsx                       # Global error boundary
-│   ├── layout.tsx                      # Root layout
+│   ├── layout.tsx                      # Root layout (next/font, skip nav, JSON-LD, viewport)
+│   ├── search/
+│   │   ├── page.tsx                    # Cross-library search (/search)
+│   │   └── layout.tsx                  # Search page metadata
+│   ├── chat/
+│   │   ├── page.tsx                    # Cross-library chat (/chat)
+│   │   └── layout.tsx                  # Chat page metadata
 │   └── library/[slug]/
 │       ├── page.tsx                    # Library dashboard (search + browse)
-│       ├── layout.tsx                  # Library layout
+│       ├── loading.tsx                 # Library loading skeleton (Suspense)
+│       ├── layout.tsx                  # Library layout (dynamic OG metadata)
 │       ├── error.tsx                   # Library error boundary
-│       ├── chat/page.tsx               # RAG chat (citations, sidebar, history)
+│       ├── chat/page.tsx               # Single-library RAG chat
 │       ├── upload/page.tsx             # Multi-file drag-and-drop upload
 │       └── settings/page.tsx           # Library settings
 ├── components/
-│   ├── Nav.tsx                         # Breadcrumb navigation (responsive)
+│   ├── Nav.tsx                         # Top nav (Libraries, Search, Chat + library breadcrumbs)
+│   ├── LibrarySelector.tsx             # Checkbox multi-select for cross-library features
+│   ├── RenderedAnswer.tsx              # Citation [1][2] renderer (shared)
+│   ├── SourceCard.tsx                  # Collapsible source card with optional library badge
 │   └── ErrorBoundary.tsx               # Reusable error boundary component
 └── lib/
-    ├── api.ts                          # All API calls (typed)
+    ├── api.ts                          # All API calls (typed, includes multi-library methods)
     ├── auth.tsx                        # Auth context provider
     └── useKeyboard.ts                  # Keyboard shortcuts hook (/, n, Esc)
 tests/
-└── test_api.py                         # 30 integration tests
+└── test_api.py                         # ~38 integration tests (includes multi-library suite)
 mcp.json                                # MCP server config for Claude Code
 ```
 
@@ -115,14 +135,15 @@ mcp.json                                # MCP server config for Claude Code
 ```
 PostgreSQL 16 + pgvector @ 127.0.0.1:5442
 
-libraries          → namespace table (slug, name, config JSONB)
-documents          → full document text (library_id FK, content_hash dedup)
-chunks             → vectorized text (embedding vector(768), HNSW index)
-topics             → auto-discovered topics per library
-conversations      → chat sessions per library/user
-messages           → chat messages with sources_json
-failed_embeddings  → retry queue for embedding failures
-rate_limits        → DB-backed sliding window rate limit entries
+libraries               → namespace table (slug, name, config JSONB)
+documents               → full document text (library_id FK, content_hash dedup)
+chunks                  → vectorized text (embedding vector(768), HNSW index)
+topics                  → auto-discovered topics per library
+conversations           → chat sessions (library_id nullable: NULL = multi-library)
+messages                → chat messages with sources_json
+conversation_libraries  → join table: which libraries a multi-library conversation spans
+failed_embeddings       → retry queue for embedding failures
+rate_limits             → DB-backed sliding window rate limit entries
 ```
 
 ```bash
@@ -154,7 +175,7 @@ LLM_BASE_URL=http://free_llm_api:8000/v1
 ## Testing
 
 ```bash
-make test                         # Run all 30 tests (requires running containers)
+make test                         # Run all ~38 tests (requires running containers)
 pytest tests/ -v                  # Same, without Makefile
 pytest tests/test_api.py -k chat  # Run only chat-related tests
 ```
@@ -182,8 +203,9 @@ docker compose restart api
 
 ### Add a Frontend Page
 1. Create `frontend/app/mypage/page.tsx` (Next.js App Router)
-2. Add nav link in `frontend/components/Nav.tsx`
-3. Use CSS vars: `var(--bg)` `var(--accent)` and classes: `.card` `.btn` `.badge`
+2. Create `frontend/app/mypage/layout.tsx` with page-specific `<title>` metadata
+3. Add nav link in `frontend/components/Nav.tsx`
+4. Use CSS vars: `var(--bg)` `var(--accent)` and classes: `.card` `.btn` `.badge`
 
 ## Critical Rules
 

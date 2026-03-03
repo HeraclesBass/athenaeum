@@ -101,7 +101,7 @@ export default function HomePage() {
           {/* CTA */}
           {auth.authenticated ? (
             <button onClick={() => setShowCreate(!showCreate)} className="btn-glow">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
@@ -129,8 +129,8 @@ export default function HomePage() {
         />
         <FeatureCard
           icon={<><path d="M4 19.5A2.5 2.5 0 016.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" /></>}
-          title="Multi-Library"
-          desc="Organize content into isolated namespaces"
+          title="Cross-Library"
+          desc="Search and chat across multiple libraries at once"
         />
         <FeatureCard
           icon={<><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></>}
@@ -144,8 +144,9 @@ export default function HomePage() {
         <div className="max-w-md mx-auto mb-12 animate-in">
           <form onSubmit={handleCreate} className="card p-5 space-y-3.5">
             <div>
-              <label className="section-label block mb-1.5">Name</label>
+              <label htmlFor="lib-name" className="section-label block mb-1.5">Name</label>
               <input
+                id="lib-name"
                 type="text"
                 value={newName}
                 onChange={(e) => {
@@ -159,8 +160,9 @@ export default function HomePage() {
               />
             </div>
             <div>
-              <label className="section-label block mb-1.5">Slug</label>
+              <label htmlFor="lib-slug" className="section-label block mb-1.5">Slug</label>
               <input
+                id="lib-slug"
                 type="text"
                 value={newSlug}
                 onChange={(e) => setNewSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
@@ -173,8 +175,9 @@ export default function HomePage() {
               </p>
             </div>
             <div>
-              <label className="section-label block mb-1.5">Description</label>
+              <label htmlFor="lib-desc" className="section-label block mb-1.5">Description</label>
               <textarea
+                id="lib-desc"
                 value={newDesc}
                 onChange={(e) => setNewDesc(e.target.value)}
                 placeholder="What's in this library?"
@@ -183,13 +186,14 @@ export default function HomePage() {
               />
             </div>
             <div>
-              <label className="section-label block mb-1.5">Visibility</label>
-              <div className="flex gap-2">
+              <span id="visibility-label" className="section-label block mb-1.5">Visibility</span>
+              <div className="flex gap-2" role="group" aria-labelledby="visibility-label">
                 {(["private", "public"] as const).map((v) => (
                   <button
                     key={v}
                     type="button"
                     onClick={() => setNewVisibility(v)}
+                    aria-pressed={newVisibility === v}
                     className="btn text-xs flex-1"
                     style={{
                       background: newVisibility === v ? "var(--accent-dim)" : "transparent",
@@ -215,7 +219,7 @@ export default function HomePage() {
       )}
 
       {error && (
-        <p className="text-center text-xs mb-4" style={{ color: "var(--red)" }}>{error}</p>
+        <p role="alert" className="text-center text-xs mb-4" style={{ color: "var(--red)" }}>{error}</p>
       )}
 
       {/* ── Loading ──────────────────────────────────────────────── */}
@@ -267,6 +271,7 @@ export default function HomePage() {
       {!loading && libraries.length === 0 && !error && (
         <div className="text-center py-16">
           <svg
+            aria-hidden="true"
             className="mx-auto mb-5"
             width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
@@ -330,6 +335,7 @@ function FeatureCard({
       }}
     >
       <svg
+        aria-hidden="true"
         className="mx-auto mb-2.5"
         width="22" height="22" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"

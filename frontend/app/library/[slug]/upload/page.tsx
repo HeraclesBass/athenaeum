@@ -151,16 +151,21 @@ export default function UploadPage() {
             background: dragOver ? "var(--accent-dim)" : "transparent",
           }}
           onClick={() => fileInputRef.current?.click()}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInputRef.current?.click(); } }}
+          role="button"
+          tabIndex={0}
+          aria-label="Upload area. Click or press Enter to browse files, or drag and drop files here."
         >
           <input
             ref={fileInputRef}
             type="file"
             accept=".pdf,.txt,.md,.text"
             multiple
-            className="hidden"
+            className="sr-only"
+            aria-label="Select files to upload"
             onChange={(e) => e.target.files?.length && addFiles(e.target.files)}
           />
-          <svg className="mx-auto mb-4" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--muted)" }}>
+          <svg aria-hidden="true" className="mx-auto mb-4" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--muted)" }}>
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
             <polyline points="17 8 12 3 7 8" />
             <line x1="12" y1="3" x2="12" y2="15" />

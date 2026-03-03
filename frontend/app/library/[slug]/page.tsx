@@ -154,6 +154,7 @@ export default function LibraryDashboard() {
       <div className="max-w-xl mb-8">
         <form onSubmit={handleSearch} className="relative">
           <svg
+            aria-hidden="true"
             className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
             width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
@@ -165,6 +166,7 @@ export default function LibraryDashboard() {
           <input
             ref={searchInputRef}
             type="text"
+            aria-label={`Search ${library.name}`}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={`Search ${library.name}... (press /)`}
@@ -186,7 +188,7 @@ export default function LibraryDashboard() {
         </form>
       </div>
 
-      {error && <p className="text-xs mb-4" style={{ color: "var(--red)" }}>{error}</p>}
+      {error && <p role="alert" className="text-xs mb-4" style={{ color: "var(--red)" }}>{error}</p>}
 
       {/* Search results */}
       {searched && (

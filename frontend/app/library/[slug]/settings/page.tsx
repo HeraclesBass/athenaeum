@@ -116,6 +116,7 @@ export default function SettingsPage() {
 
       {error && (
         <div
+          role="alert"
           className="rounded-lg p-3 mb-5 text-xs"
           style={{ background: "var(--red-dim)", color: "var(--red)", border: "1px solid rgba(248,113,113,0.15)" }}
         >
@@ -126,21 +127,22 @@ export default function SettingsPage() {
       {/* Edit form */}
       <form onSubmit={handleSave} className="card p-5 space-y-4 mb-6">
         <div>
-          <label className="section-label block mb-1.5">Name</label>
-          <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input" required />
+          <label htmlFor="settings-name" className="section-label block mb-1.5">Name</label>
+          <input id="settings-name" type="text" value={name} onChange={(e) => setName(e.target.value)} className="input" required />
         </div>
         <div>
-          <label className="section-label block mb-1.5">Description</label>
-          <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="input" rows={3} />
+          <label htmlFor="settings-desc" className="section-label block mb-1.5">Description</label>
+          <textarea id="settings-desc" value={description} onChange={(e) => setDescription(e.target.value)} className="input" rows={3} />
         </div>
         <div>
-          <label className="section-label block mb-1.5">Visibility</label>
-          <div className="flex gap-2">
+          <span id="settings-visibility" className="section-label block mb-1.5">Visibility</span>
+          <div className="flex gap-2" role="group" aria-labelledby="settings-visibility">
             {(["private", "public"] as const).map((v) => (
               <button
                 key={v}
                 type="button"
                 onClick={() => setVisibility(v)}
+                aria-pressed={visibility === v}
                 className="btn text-xs flex-1"
                 style={{
                   background: visibility === v ? "var(--accent-dim)" : "transparent",
@@ -149,9 +151,9 @@ export default function SettingsPage() {
                 }}
               >
                 {v === "private" ? (
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+                  <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
                 ) : (
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>
+                  <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>
                 )}
                 {v.charAt(0).toUpperCase() + v.slice(1)}
               </button>
