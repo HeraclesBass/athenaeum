@@ -8,6 +8,10 @@ venv/
 # Environment
 .env
 .env.local
+.env.production
+
+# Docker Compose override (private deployment overlay)
+docker-compose.override.yml
 
 # Data (library content is user-generated, not committed)
 data/*/

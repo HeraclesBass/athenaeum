@@ -8,9 +8,13 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-# Build with empty API URL so frontend uses relative paths (works on any domain)
+# NEXT_PUBLIC_* vars are baked into the client bundle at build time
 ARG NEXT_PUBLIC_API_URL=""
+ARG NEXT_PUBLIC_APP_URL=""
+ARG NEXT_PUBLIC_AUTH_URL=""
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_AUTH_URL=$NEXT_PUBLIC_AUTH_URL
 RUN npm run build
 
 FROM node:20-alpine AS runner
